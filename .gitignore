@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Downloaded and unpacked GCJ data
+data/gcj_csv_archives/
+data/gcj_csv_unpacked/
+
+# Extracted solutions
+extracted_solutions/
+
+# Tool results database
+data/tool_results/tool_results.db
+
+# OS-specific / IDE-specific
+.DS_Store
+.idea/
+.vscode/
+
+# Generated benchmark files
+benchmark_output/
+
+# Другие временные или локальные файлы
+*.swp
+*~ 
