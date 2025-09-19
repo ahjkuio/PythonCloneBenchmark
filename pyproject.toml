@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-clone-benchmark"
+version = "0.1.0"
+description = "Modular benchmark and evaluation toolkit for Python code clone detectors"
+readme = "README.md"
+authors = [{ name = "Artem Kuznetsov" }]
+dependencies = [
+    "tqdm>=4.65",
+]
+requires-python = ">=3.9"
+keywords = ["clone-detection", "benchmark", "python", "code-analysis"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+pcbench = "pcbench.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+include = ["pcbench*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

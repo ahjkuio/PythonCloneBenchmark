@@ -1,0 +1,14 @@
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Large artifacts
+benchmark_output/
+extracted_solutions/
+data/
+
+# Editors
+.vscode/
+.idea/
