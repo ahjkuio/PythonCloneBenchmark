@@ -20,7 +20,7 @@ def _token_stream(code: str) -> Iterable[tokenize.TokenInfo]:
     try:
         for tok in tokenize.generate_tokens(reader):
             yield tok
-    except tokenize.TokenError:
+    except (tokenize.TokenError, IndentationError, SyntaxError):
         return
 
 
