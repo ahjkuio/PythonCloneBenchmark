@@ -138,18 +138,19 @@ pcbench eval \
            chunks.append(sub)
            if sum(len(c) for c in chunks) >= 100:
                break
-   small = pd.concat(chunks).groupby('task').head(20)
-   small.to_csv(out, index=False)
-   PY
-   ```
+  small = pd.concat(chunks).groupby('task').head(20)
+  small.to_csv(out, index=False)
+  PY
+  ```
 3. Соберите эталон и QC:
    ```bash
-pcbench build --year 2017 \
-  --input-csv ../gcj-dataset/gcj2017_small.csv \
+   pcbench build --year 2017 \
+     --input-csv ../gcj-dataset/gcj2017_small.csv \
      --output-dir benchmark_output \
      --extracted-dir extracted_solutions \
      --granularity auto --min-lines 5 --annotate-clone-type
-
+   ```
+   ```bash
    pcbench qc --benchmark-csv benchmark_output/clones_2017.csv.gz
    ```
 4. SourcererCC: добавьте путь к `extracted_solutions` в `tokenizers/file-level/paths.txt`, запустите `python tokenizer.py zip` и `python controller.py`. Полученный `clones_index_WITH_FILTER.db` адаптируйте командой из абзаца выше.
