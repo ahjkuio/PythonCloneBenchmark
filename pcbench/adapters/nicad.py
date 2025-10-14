@@ -14,19 +14,29 @@ def convert_nicad_clusters(
     output_csv: Path,
 ) -> Path:
     project_root = project_root.resolve()
-    tree = ET.parse(xml_path)
+    resolved_xml = xml_path.resolve()
+    tree = ET.parse(resolved_xml)
     root = tree.getroot()
 
+    nicad_root = resolved_xml.parent
+    while nicad_root.name != "nicadclones" and nicad_root != nicad_root.parent:
+        nicad_root = nicad_root.parent
+    nicad_root = nicad_root.parent if nicad_root.name == "nicadclones" else resolved_xml.parent
+
     rows = []
-    for clone in root.findall(".//clone"):
+    clone_nodes = root.findall(".//clone")
+    if not clone_nodes:
+        clone_nodes = root.findall(".//class")
+
+    for clone in clone_nodes:
         sources = clone.findall("source")
         for left, right in itertools.combinations(sources, 2):
             try:
                 row = {
-                    "file1_path": to_project_relative(Path(left.attrib["file"]), project_root),
+                    "file1_path": to_project_relative((nicad_root / Path(left.attrib["file"])).resolve(), project_root),
                     "file1_start": int(left.attrib.get("startline", "0")),
                     "file1_end": int(left.attrib.get("endline", "0")),
-                    "file2_path": to_project_relative(Path(right.attrib["file"]), project_root),
+                    "file2_path": to_project_relative((nicad_root / Path(right.attrib["file"])).resolve(), project_root),
                     "file2_start": int(right.attrib.get("startline", "0")),
                     "file2_end": int(right.attrib.get("endline", "0")),
                 }

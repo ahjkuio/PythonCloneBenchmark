@@ -37,6 +37,7 @@ def convert_ccaligner_to_tool_csv(
     в формат tool CSV (file1_path,file1_start,file1_end,file2_path,file2_start,file2_end).
     Пытается сопоставить по basename с извлеченными решениями.
     """
+    extracted_dir = extracted_dir.resolve()
     mapping = _index_extracted_basenames(extracted_dir, year)
 
     with ccaligner_csv.open("r", encoding="utf-8", newline="") as fin, \
@@ -55,12 +56,25 @@ def convert_ccaligner_to_tool_csv(
         converted = 0
         skipped = 0
         for row in reader:
-            if len(row) != 8:
+            if len(row) == 8:
+                _, name1, s1, e1, _, name2, s2, e2 = row
+                p1 = mapping.get(name1)
+                p2 = mapping.get(name2)
+            elif len(row) == 6:
+                p1_path, s1, e1, p2_path, s2, e2 = row
+                p1_res = Path(p1_path).resolve()
+                p2_res = Path(p2_path).resolve()
+                try:
+                    rel1 = p1_res.relative_to(extracted_dir)
+                    rel2 = p2_res.relative_to(extracted_dir)
+                except ValueError:
+                    skipped += 1
+                    continue
+                p1 = f"{extracted_dir.name}/{rel1.as_posix()}"
+                p2 = f"{extracted_dir.name}/{rel2.as_posix()}"
+            else:
                 skipped += 1
                 continue
-            _, name1, s1, e1, _, name2, s2, e2 = row
-            p1 = mapping.get(name1)
-            p2 = mapping.get(name2)
             if not p1 or not p2:
                 skipped += 1
                 continue
