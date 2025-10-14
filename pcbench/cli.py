@@ -7,6 +7,8 @@ from .core.evaluator import evaluate, evaluate_with_details, write_eval_report
 from .adapters.ccaligner import convert_ccaligner_to_tool_csv
 from .adapters.mock_detector import generate_mock_from_benchmark
 from .adapters.nil import convert_nil_to_tool_csv
+from .adapters.sourcerercc import convert_sourcerercc
+from .adapters.nicad import convert_nicad_clusters
 from .core.qc import qc_benchmark, write_qc_report
 
 
@@ -58,6 +60,18 @@ def main(argv=None):
         action="store_true",
         help="Если в CSV NIL уже 0-индексация (по умолчанию считается 1-индексация)",
     )
+
+    # adapt-sourcerercc subcommand
+    p_scc = subparsers.add_parser("adapt-sourcerercc", help="Конвертировать вывод SourcererCC в формат tool CSV")
+    p_scc.add_argument("--pairs-file", required=True, help="Файл с парами (обычно clones_index_WITH_FILTER.db)")
+    p_scc.add_argument("--project-root", required=True, help="Корень проекта, относительно которого строились пути")
+    p_scc.add_argument("--output-csv", required=True, help="Куда сохранить tool CSV")
+
+    # adapt-nicad subcommand
+    p_nicad = subparsers.add_parser("adapt-nicad", help="Конвертировать XML с клон-кластерами NiCad")
+    p_nicad.add_argument("--clusters-xml", required=True, help="Файл *_clones.xml из NiCad")
+    p_nicad.add_argument("--project-root", required=True, help="Корень проекта, относительно которого строились пути")
+    p_nicad.add_argument("--output-csv", required=True, help="Куда сохранить tool CSV")
 
     # gen-mock subcommand
     p_mock = subparsers.add_parser("gen-mock", help="Сгенерировать псевдо-вывод детектора из эталона")
@@ -150,6 +164,22 @@ def main(argv=None):
             extracted_dir=Path(args.extracted_dir),
             output_csv=Path(args.output_csv),
             assume_1_indexed_input=not args.zero_indexed,
+        )
+        print(f"Converted to {out}")
+        return 0
+    elif args.command == "adapt-sourcerercc":
+        out = convert_sourcerercc(
+            pairs_file=Path(args.pairs_file),
+            project_root=Path(args.project_root),
+            output_csv=Path(args.output_csv),
+        )
+        print(f"Converted to {out}")
+        return 0
+    elif args.command == "adapt-nicad":
+        out = convert_nicad_clusters(
+            xml_path=Path(args.clusters_xml),
+            project_root=Path(args.project_root),
+            output_csv=Path(args.output_csv),
         )
         print(f"Converted to {out}")
         return 0
