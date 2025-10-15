@@ -104,7 +104,8 @@ pcbench eval \
   pcbench adapt-sourcerercc \
     --pairs-file path/to/clones_index_WITH_FILTER.db \
     --project-root /path/to/PythonCloneBenchmark \
-    --output-csv data/tool_sourcerercc.csv
+    --output-csv data/tool_sourcerercc.csv \
+    --stats /path/to/SourcererCC/tokenizers/file-level/files_stats
   ```
 - **NiCad → pcbench** ([репозиторий](https://github.com/CordyJ/Open-NiCad))
   ```bash
@@ -117,6 +118,24 @@ pcbench eval \
     --project-root /path/to/PythonCloneBenchmark \
     --output-csv data/tool_nicad.csv
   ```
+- **PythonCloneDetection (GraphCodeBERT) → pcbench** ([репозиторий](https://github.com/RepoAnalysis/PythonCloneDetection))
+  ```bash
+  git clone https://github.com/RepoAnalysis/PythonCloneDetection ../PythonCloneDetection
+  # Установите torch>=2.7, transformers>=4.57, datasets, accelerate (см. requirements.txt)
+  ./.venv/bin/python scripts/run_pythonclonedetection.py  # по умолчанию только пары одной задачи
+
+  pcbench adapt-pythonclonedetection \
+    --raw-csv benchmark_output_medium/pythonclonedetection_raw.csv \
+    --output-csv data/tool_pythonclonedetection_medium.csv \
+    --min-score 0.5
+
+  pcbench eval \
+    --benchmark-csv benchmark_output_medium/clones_2017.csv \
+    --tool-csv data/tool_pythonclonedetection_medium.csv \
+    --metric c --threshold 0.7 \
+    --report-dir benchmark_output_medium/eval_pythonclonedetection
+  ```
+  Medium 2017 (c-match@0.7): TP=138, FP=8, FN=88 → Precision=0.945, Recall=0.611, F1=0.742. Детектор хорошо ловит Type‑3/4, но не покрывает короткие Type‑1.
 
 ### Быстрая проверка на небольшом наборе
 1. Скачайте исходные CSV GCJ:

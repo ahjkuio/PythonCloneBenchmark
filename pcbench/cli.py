@@ -8,6 +8,7 @@ from .adapters.ccaligner import convert_ccaligner_to_tool_csv
 from .adapters.mock_detector import generate_mock_from_benchmark
 from .adapters.nil import convert_nil_to_tool_csv
 from .adapters.sourcerercc import convert_sourcerercc
+from .adapters.pythonclonedetection import convert_pythonclonedetection
 from .adapters.nicad import convert_nicad_clusters
 from .core.qc import qc_benchmark, write_qc_report
 
@@ -63,9 +64,45 @@ def main(argv=None):
 
     # adapt-sourcerercc subcommand
     p_scc = subparsers.add_parser("adapt-sourcerercc", help="Конвертировать вывод SourcererCC в формат tool CSV")
-    p_scc.add_argument("--pairs-file", required=True, help="Файл с парами (обычно clones_index_WITH_FILTER.db)")
+    p_scc.add_argument("--pairs-file", required=True, help="Файл с парами (обычно results.pairs)")
     p_scc.add_argument("--project-root", required=True, help="Корень проекта, относительно которого строились пути")
     p_scc.add_argument("--output-csv", required=True, help="Куда сохранить tool CSV")
+    p_scc.add_argument(
+        "--stats",
+        nargs="*",
+        default=None,
+        help="Пути к *.stats (или каталогам), если results.pairs содержит идентификаторы вместо путей",
+    )
+
+    # adapt-pythonclonedetection subcommand
+    p_pcd = subparsers.add_parser(
+        "adapt-pythonclonedetection",
+        help="Конвертировать вывод PythonCloneDetection в формат tool CSV",
+    )
+    p_pcd.add_argument("--raw-csv", required=True, help="CSV с предсказаниями PythonCloneDetection")
+    p_pcd.add_argument("--output-csv", required=True, help="Куда сохранить tool CSV")
+    p_pcd.add_argument(
+        "--min-score",
+        type=float,
+        default=None,
+        help="Минимальная вероятность положительного класса (используется при наличии колонки score)",
+    )
+    p_pcd.add_argument(
+        "--prediction-column",
+        default="predictions",
+        help="Имя колонки с бинарным решением",
+    )
+    p_pcd.add_argument(
+        "--positive-value",
+        type=int,
+        default=1,
+        help="Значение в prediction-column, соответствующее клону",
+    )
+    p_pcd.add_argument(
+        "--score-column",
+        default="score",
+        help="Имя колонки с вероятностью положительного класса",
+    )
 
     # adapt-nicad subcommand
     p_nicad = subparsers.add_parser("adapt-nicad", help="Конвертировать XML с клон-кластерами NiCad")
@@ -172,6 +209,18 @@ def main(argv=None):
             pairs_file=Path(args.pairs_file),
             project_root=Path(args.project_root),
             output_csv=Path(args.output_csv),
+            stats_paths=[Path(p) for p in args.stats] if args.stats else None,
+        )
+        print(f"Converted to {out}")
+        return 0
+    elif args.command == "adapt-pythonclonedetection":
+        out = convert_pythonclonedetection(
+            raw_csv=Path(args.raw_csv),
+            output_csv=Path(args.output_csv),
+            min_score=args.min_score,
+            prediction_column=args.prediction_column,
+            positive_value=args.positive_value,
+            score_column=args.score_column,
         )
         print(f"Converted to {out}")
         return 0
