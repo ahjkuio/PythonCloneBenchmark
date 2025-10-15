@@ -176,11 +176,130 @@ pcbench eval \
    pcbench qc --benchmark-csv benchmark_output/clones_2017.csv.gz
    ```
 4. SourcererCC: добавьте путь к `extracted_solutions` в `tokenizers/file-level/paths.txt`, запустите `python tokenizer.py zip` и `python controller.py`. Полученный `clones_index_WITH_FILTER.db` адаптируйте командой из абзаца выше.
-5. NiCad: в каталоге `Open-NiCad` выполните `./nicad4 functions python extracted_solutions ni_result` (пример). Файл `ni_result/extracted_solutions_functions-blind-clones.xml` адаптируйте через `pcbench adapt-nicad`.
+5. NiCad: в каталоге `Open-NiCad` выполните `./nicad functions python extracted_solutions ni_result` (пример). Файл `ni_result/extracted_solutions_functions-blind-clones.xml` адаптируйте через `pcbench adapt-nicad`.
 6. NIL: соберите и запустите JAR (см. README проекта NIL, пример: `java -jar NIL-all.jar --src extracted_solutions --language python --min-line 5 --output data/nil.csv`). Готовый CSV адаптируйте через `pcbench adapt-nil`.
 7. После адаптации можно запустить `pcbench eval` и, при необходимости, `python scripts/eval_by_type.py --benchmark ... --tool ...`, чтобы посмотреть метрики и распределение по типам.
 
 Эти шаги дают быстрый прогон и подтверждают, что адаптеры и пайплайн работают до запуска на полном наборе (105 млн пар).
+
+## Полный набор GCJ 2017
+
+Числа ниже получены из `benchmark_output_full/benchmark_2017_summary.md`, сформированного после `pcbench build --annotate-clone-type --input-csv gcj2017.csv`.
+
+| Показатель | Значение |
+| --- | ---: |
+| Python-решений | 34,994 |
+| Пар клонов | 105,747,106 |
+| Минимальная длина фрагмента | 5 строк |
+| Гранулярность | auto (функции или весь файл) |
+
+**Распределение типов (`clone_type` в `clones_2017.csv.gz`):**
+
+| Тип | Количество | Доля |
+| --- | ---: | ---: |
+| type4 | 104,849,977 | 99.16% |
+| unknown* | 685,294 | 0.65% |
+| type3 | 191,942 | 0.18% |
+| type1 | 15,359 | 0.01% |
+| type2 | 4,534 | \<0.01% |
+
+\* `unknown` появляется, когда парсер Python не смог восстановить корректный AST (битые или сильно запутанные решения).
+
+**Как извлекаются фрагменты.** `pcbench/core/code_fragments.py` перебирает эвристики в фиксированном порядке:
+
+1. ищем `if __name__ == "__main__":` и вызовы из него (`regex_named`);
+2. обрабатываем алиасы (`main = solve`, `Solver().run()`, `lambda: main()`), `ast_named`;
+3. ищем первую подходящую `def` (`regex_longest`, `regex_single`);
+4. для скриптов обрезаем хвост с `input()`/`print()` (`script_trim`);
+5. если обработка AST удалась - берём один `FunctionDef` (`ast_single`);
+6. в противном случае «фолбэк» - весь файл.
+
+Счётчики стратегий из `builder.py:71-94` попадают в summary: `regex_named` - 12,575 файлов, `script_trim` - 9,602, `regex_longest` - 7,190, `regex_single` - 6,656, `ast_single` - 33, `ast_named` - 8.
+
+## Результаты детекторов (benchmark_output_full)
+
+Все прогонки сделаны относительно полного эталона `benchmark_output_full/clones_2017.csv.gz` с метрикой `c-match` (кроме SourcererCC) и порогом покрытия 0.7. Готовые отчёты лежат в `benchmark_output_full/eval_*`.
+
+| Инструмент | Конфигурация | Пары инструмента | TP | FP | FN | Precision | Recall | Каталог отчёта |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| CCAligner θ=40 | file-level, `pcbench adapt-ccaligner --assume-1-indexed` | 40,288 | 26,242 | 33,276 | 105,720,864 | 0.4409 | 0.0002 | `benchmark_output_full/eval_ccaligner_theta40` |
+| NiCad (functions, no-rename) | `nicad functions python` + `pcbench adapt-nicad` | 1,286 | 300 | 1,144 | 105,746,806 | 0.2078 | 0.0000 | `benchmark_output_full/eval_nicad_no_rename` |
+| NIL (Python, BCE) | `java -jar NIL-all.jar -l python ... -bce` | 8,170 | 2,525 | 7,375 | 105,744,581 | 0.2551 | 0.0000 | `benchmark_output_full/eval_nil_full` |
+| SourcererCC (file-level) | `controller.py` + `pcbench adapt-sourcerercc --stats …` (metric **sc**) | 78,443 | 133,792 | 40,905 | 105,613,314 | 0.7659 | 0.0013 | `benchmark_output_full/eval_sourcerercc_full`* |
+
+* SourcererCC выдаёт пары целых файлов. На метрике `c-match` покрытие «функция ↔ файл» близко к нулю, поэтому для анализа используем `sc-match@0.7` (эталонный фрагмент должен быть покрыт ≥70%, ограничения на размер фрагмента инструмента нет). Отсюда TP может быть больше числа строк в `tool_csv`: одна пара файлов покрывает множество эталонных функций.
+
+### CCAligner θ = 40
+
+```bash
+pcbench adapt-ccaligner \
+  --ccaligner-csv /path/to/ccaligner_theta40.csv \
+  --extracted-dir /path/to/extracted_solutions_full \
+  --year 2017 \
+  --output-csv data/tool_ccaligner_full_theta40.csv \
+  --assume-1-indexed
+
+pcbench eval \
+  --benchmark-csv benchmark_output_full/clones_2017.csv.gz \
+  --tool-csv data/tool_ccaligner_full_theta40.csv \
+  --metric c --threshold 0.7 \
+  --report-dir benchmark_output_full/eval_ccaligner_theta40
+```
+
+В отчёте: 26 242 TP при 33 276 FP. `by_type.md` показывает, что инструмент лучше всего ловит Type‑1 (3.3 % recall) и Type‑2 (8.8 %), но массовые Type‑4 почти не покрываются (0.02 %).
+
+### NiCad (functions, rename=none)
+
+```bash
+pcbench adapt-nicad \
+  --clusters-xml /path/to/extracted_solutions_2017_functions-clones-0.30-classes.xml \
+  --project-root /path/to/PythonCloneBenchmark \
+  --output-csv data/tool_nicad_full_no_rename.csv
+
+pcbench eval \
+  --benchmark-csv benchmark_output_full/clones_2017.csv.gz \
+  --tool-csv data/tool_nicad_full_no_rename.csv \
+  --metric c --threshold 0.7 \
+  --report-dir benchmark_output_full/eval_nicad_no_rename
+```
+
+NiCad дал 1 286 кандидатов: 300 из них повторяют эталон (в основном Type‑1/2 внутри одного автора), остальные 1 144 - межзадачные либо self-клоны, отсутствующие в золотом стандарте.
+
+### NIL (Python, BCE)
+
+```bash
+pcbench adapt-nil \
+  --nil-csv /path/to/result_full_bce.csv \
+  --extracted-dir /path/to/extracted_solutions_full \
+  --output-csv data/tool_nil_full.csv \
+  --zero-indexed
+
+pcbench eval \
+  --benchmark-csv benchmark_output_full/clones_2017.csv.gz \
+  --tool-csv data/tool_nil_full.csv \
+  --metric c --threshold 0.7 \
+  --report-dir benchmark_output_full/eval_nil_full
+```
+
+NIL аккуратно выдаёт 8 170 пар (TP = 2 525). Большая часть ложных срабатываний - кросс-задачные похожие шаблоны. При `c@0.7` recall близок к нулю, но список пригоден для последующего ручного разбора.
+
+### SourcererCC (file-level)
+
+```bash
+pcbench adapt-sourcerercc \
+  --pairs-file /path/to/SourcererCC/clone-detector/results.pairs \
+  --project-root /path/to/PythonCloneBenchmark \
+  --output-csv data/tool_sourcerercc_full.csv \
+  --stats /path/to/SourcererCC/tokenizers/file-level/files_stats
+
+pcbench eval \
+  --benchmark-csv benchmark_output_full/clones_2017.csv.gz \
+  --tool-csv data/tool_sourcerercc_full.csv \
+  --metric sc --threshold 0.7 \
+  --report-dir benchmark_output_full/eval_sourcerercc_sc
+```
+
+Отчёт на `sc-match` показывает 133,792 покрытых эталонных фрагмента при 40,905 FP. Для сравнения можно также запустить `--metric c`; в этом режиме file-level выдача почти целиком отфильтровывается (TP≈0), что ожидаемо для большого разброса по длинам.
 
 ## Как устроено ядро
 - `pcbench/core/gcj_reader.py` - автоматическое определение формата (CSV/TSV), фильтрация по году/задачам.
@@ -216,6 +335,44 @@ pcbench eval \
    3. Если структуры различаются, считаем похожесть `SequenceMatcher`; порог `type3_min_similarity=0.8` задаёт Type‑3 (near-miss).
    4. Остальное попадает в Type‑4.
 7. **Запись CSV (`builder.py:135-178`).** В результате каждая строка содержит пути, интервалы, `task_id`, `clone_type`. Если `--gzip`, файл сжимается (`clones_<year>.csv.gz`).
+ 
+Подробнее код классификатора выглядит так:
+
+```python
+def classify_clone_pair(code1: str, code2: str, thresholds=CloneTypeThresholds()):
+    lexical1 = _normalize_tokens(code1, structural=False)
+    lexical2 = _normalize_tokens(code2, structural=False)
+    if lexical1 == lexical2:
+        return "type1"
+
+    structural1 = _normalize_tokens(code1, structural=True)
+    structural2 = _normalize_tokens(code2, structural=True)
+    if structural1 == structural2:
+        return "type2"
+
+    similarity = SequenceMatcher(None, structural1, structural2).ratio()
+    if similarity >= thresholds.type3_min_similarity:  # по умолчанию 0.8
+        return "type3"
+
+    return "type4"
+```
+
+Функция `_normalize_tokens` основана на `tokenize.generate_tokens`:
+
+* игнорирует комментарии (`tokenize.COMMENT`) и служебные токены (`ENCODING`, `NL`, `INDENT`, `DEDENT`, `NEWLINE`);
+* в режиме `structural=False` возвращает исходный текст токена - так фиксируются точные совпадения (Type‑1);
+* в режиме `structural=True` заменяет:
+  * идентификаторы на `ID` (если это не ключевое слово Python - проверяется через `keyword.iskeyword`);
+  * числа на `NUM`;
+  * строковые литералы на `STR`;
+* остальные токены записываются без изменений.
+
+После двух проходов сравнение идёт по строкам:
+
+1. `lexical1 == lexical2` → полностью идентичный код (Type‑1).
+2. `structural1 == structural2` → совпадает структура после нормализации имён (Type‑2).
+3. Если строки отличаются, вычисляется `SequenceMatcher(...).ratio()` и сравнивается с порогом `CloneTypeThresholds.type3_min_similarity` (по умолчанию 0.8). Это near-miss Type‑3.
+4. В остальных случаях пара маркируется как Type‑4 (семантические клоны).
 
 ### Пример на мини-наборе
 
